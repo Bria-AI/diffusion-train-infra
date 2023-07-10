@@ -157,7 +157,7 @@ class StableDiffusion(ComposerModel):
         if self.precomputed_latents and self.image_latents_key in batch and self.text_latents_key in batch:
             latents, conditioning = batch[self.image_latents_key], batch[self.text_latents_key]
         else:
-            inputs, conditioning = batch[self.image_key], batch[self.text_key]
+            inputs, conditioning = batch[0], batch[1]
             conditioning = conditioning.view(-1, conditioning.shape[-1])
             if self.encode_latents_in_fp16:
                 # Disable autocast context as models are in fp16
@@ -194,8 +194,8 @@ class StableDiffusion(ComposerModel):
         # Get unet outputs
         unet_out, noise, timesteps = self.forward(batch)
         # Sample images from the prompts in the batch
-        prompts = batch[self.text_key]
-        height, width = batch[self.image_key].shape[-2], batch[self.image_key].shape[-1]
+        prompts = batch[1]
+        height, width = batch[0].shape[-2], batch[0].shape[-1]
         generated_images = {}
         for guidance_scale in self.val_guidance_scales:
             gen_images = self.generate(tokenized_prompts=prompts,
@@ -242,7 +242,7 @@ class StableDiffusion(ComposerModel):
             metric.update(outputs[0], outputs[1])
         # FID metrics should be updated with the generated images at the desired guidance scale
         elif metric.__class__.__name__ == 'FrechetInceptionDistance':
-            metric.update(batch[self.image_key], real=True)
+            metric.update(batch[0], real=True)
             metric.update(outputs[3][metric.guidance_scale], real=False)
         # IS metrics should be updated with the generated images at the desired guidance scale
         elif metric.__class__.__name__ == 'InceptionScore':
@@ -250,7 +250,7 @@ class StableDiffusion(ComposerModel):
         # CLIP metrics should be updated with the generated images at the desired guidance scale
         elif metric.__class__.__name__ == 'CLIPScore':
             # Convert the captions to a list of strings
-            captions = [self.tokenizer.decode(caption, skip_special_tokens=True) for caption in batch[self.text_key]]
+            captions = [self.tokenizer.decode(caption, skip_special_tokens=True) for caption in batch[1]]
             generated_images = (outputs[3][metric.guidance_scale] * 255).to(torch.uint8)
             metric.update(generated_images, captions)
         else:
