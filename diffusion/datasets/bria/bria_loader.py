@@ -17,37 +17,29 @@
 
 import glob
 import logging
+
+# import boto3
+import os
 import random
-from typing import Optional, List
+import sys
 from datetime import datetime
+from typing import List, Optional, Union
+
 import numpy as np
 import torch
 import torch.utils.checkpoint
-from typing import Union
 import transformers
+import wandb
 from accelerate.logging import get_logger
-from datasets import (
-    load_dataset,
-    Features,
-    Value,
-    Image,
-    DatasetDict,
-    Dataset,
-)
+from datasets import Dataset, DatasetDict, Features, Image, Value, load_dataset
 from datasets.distributed import split_dataset_by_node
 from huggingface_hub import HfFolder, whoami
 from torchvision import transforms
 from tqdm.auto import tqdm
 from transformers import CLIPTokenizer
-import wandb
-# import boto3
-import os
-import sys
-
 
 sys.path.append("/home/ubuntu/Infra/project_x/")
 from datetime import date
-
 
 dataset_name_mapping = {
     "lambdalabs/pokemon-blip-captions": ("image", "text"),
@@ -57,7 +49,6 @@ def load_dataset_from_parquets(
     training_dirs: List[str], rank: int, world_size: int
 ):
     parquet_files = []
-    print(training_dirs)
     for train_data_dir in training_dirs:
         files = glob.glob(f"{train_data_dir}/*.parquet")
         print(f"We have {len(files)} data files on {train_data_dir}")
@@ -135,7 +126,6 @@ def dataset(
     )
     
     training_dirs = [local]
-    print(training_dirs)
 
     ds = load_dataset_from_parquets(
         training_dirs=training_dirs, rank=RANK, world_size=WORLD_SIZE
@@ -144,7 +134,7 @@ def dataset(
     # Split parquets files accoding to rank
     ds = split_dataset_by_node(ds, rank=RANK, world_size=WORLD_SIZE)
 
-    # --- Shuffeling ----
+    # --- Shuffling ----
     # Prepare a buffer of 10K (~ 2GB ram for each process. 10GB for A100 machine with 1000Gb of ram)
     # Smaple from the buffer
     # Each new element is replacing the sampled element in the buffer to avoid dups
