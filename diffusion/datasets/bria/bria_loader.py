@@ -119,6 +119,9 @@ def dataset(
         seed = int(datetime.now().timestamp()) + RANK
         set_seed(seed)
 
+    if batch_size < 1:
+        batch_size = 1 # Stopgap for world_size > batch_size
+
     tokenizer = CLIPTokenizer.from_pretrained(
         tokenizer_name_or_path,
         subfolder="tokenizer",
